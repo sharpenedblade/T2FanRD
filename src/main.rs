@@ -41,7 +41,41 @@ fn get_current_euid() -> libc::uid_t {
     unsafe { libc::geteuid() }
 }
 
-fn find_fan_paths() -> Result<NonEmptyVec<PathBuf>> {
+fn join_suffix(mut path: PathBuf, suffix: &str) -> PathBuf {
+    let file_name = path.file_name().unwrap().to_str().unwrap();
+    path.set_file_name(format!("{file_name}{suffix}"));
+    path
+}
+
+#[derive(Debug, Clone)]
+enum FanPath {
+    AppleSmc(PathBuf),
+}
+
+impl FanPath {
+    pub fn min_speed_path(&self) -> PathBuf {
+        match self {
+            FanPath::AppleSmc(path) => join_suffix(path.clone(), "_min"),
+        }
+    }
+    pub fn max_speed_path(&self) -> PathBuf {
+        match self {
+            FanPath::AppleSmc(path) => join_suffix(path.clone(), "_max"),
+        }
+    }
+    pub fn input_path(&self) -> PathBuf {
+        match self {
+            FanPath::AppleSmc(path) => join_suffix(path.clone(), "_output"),
+        }
+    }
+    pub fn manual_path(&self) -> Option<PathBuf> {
+        match self {
+            FanPath::AppleSmc(path) => Some(join_suffix(path.clone(), "_manual")),
+        }
+    }
+}
+
+fn find_fan_paths() -> Result<NonEmptyVec<FanPath>> {
     // APP0001:00/fan1_label
     let fan = glob::glob("/sys/devices/pci*/*/*/*/APP0001:00/fan*")?
         .filter_map(Result::ok)
@@ -60,7 +94,7 @@ fn find_fan_paths() -> Result<NonEmptyVec<PathBuf>> {
             let fan_name = file_name.strip_suffix("_input")?;
             let fan_name_owned = fan_name.to_owned();
             path.set_file_name(fan_name_owned);
-            Some(path)
+            Some(FanPath::AppleSmc(path))
         });
 
     NonEmptyVec::collect(fans).ok_or(Error::NoFan)
