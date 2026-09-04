@@ -76,18 +76,7 @@ impl FanPath {
 }
 
 fn find_fan_paths() -> Result<NonEmptyVec<FanPath>> {
-    // APP0001:00/fan1_label
-    let fan = glob::glob("/sys/devices/pci*/*/*/*/APP0001:00/fan*")?
-        .filter_map(Result::ok)
-        .find(|p| p.exists())
-        .ok_or(Error::NoFan)?;
-
-    // APP0001:00
-    let first_fan_path = fan.parent().ok_or(Error::NoFan)?;
-    // APP0001:00/fan*_input
-    let fan_glob = first_fan_path.display().to_string() + "/fan*_input";
-    // APP0001:00/fan1
-    let fans = glob::glob(&fan_glob)?
+    let fans = glob::glob("/sys/devices/pci*/*/*/*/APP0001:00/fan*_input")?
         .filter_map(Result::ok)
         .filter_map(|mut path| {
             let file_name = path.file_name()?.to_str()?;
